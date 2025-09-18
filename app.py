@@ -283,4 +283,52 @@ with col2:
                 st.info("Aucun gagnant sur ce match.")
                 st.write(f"💰 Bénéfice du bookmaker : {commission_amount:.2f} € (commission totale)")
     else:
-        st.info("Ajoutez au moins un match pour commencer à parier.")           
+        st.info("Ajoutez au moins un match pour commencer à parier.")
+
+
+# -----------------------------
+# Section Historique
+# -----------------------------
+st.header("📜 Historique des matchs")
+
+closed_matches = [m for m in st.session_state.matches if m.get("closed")]
+if closed_matches:
+    history = []
+    for m in closed_matches:
+        pool = total_pool(m["id"])
+        commission_amount = pool * (st.session_state.commission / 100)
+        
+        # Identifier les gagnants
+        winners = [b for b in st.session_state.bets if b["match_id"] == m["id"] and (
+            b["selection"] == m["winner"] or (b["type"] == "team" and b["selection"] == m["winner"])
+        )]
+
+        total_payouts = sum(
+            potential_payout(m["id"], b["selection"], b["type"], b["amount"], m) for b in winners
+        )
+
+        bookmaker_profit = commission_amount + (pool - commission_amount - total_payouts)
+
+        history.append({
+            "Match": " vs ".join(sum(m["teams"].values(), [])),
+            "Vainqueur": m["winner"],
+            "Prize Pool (€)": round(pool, 2),
+            "Commission (€)": round(commission_amount, 2),
+            "Total Gains (€)": round(total_payouts, 2),
+            "Profit Bookmaker (€)": round(bookmaker_profit, 2),
+        })
+
+    hist_df = pd.DataFrame(history)
+    st.dataframe(hist_df)
+
+    # Option d'export CSV
+    csv = hist_df.to_csv(index=False).encode("utf-8")
+    st.download_button(
+        label="📥 Télécharger l'historique en CSV",
+        data=csv,
+        file_name="historique_matchs.csv",
+        mime="text/csv",
+    )
+else:
+    st.info("Aucun match clôturé pour le moment.")
+
